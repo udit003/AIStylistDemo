@@ -71,6 +71,10 @@ connection.connect((err) => {
 
 // })
 
+app.get('/helloWorld',(req,res) => {
+  res.send('Hello World from Udit')
+})
+
 
 app.get('/getProductTags', (req, res) => {
   // Query the database
