@@ -10,9 +10,34 @@ require('dotenv').config()
 const mysql = require('mysql2')
 console.log(process.env.DATABASE_URL)
 
+// const connection = mysql.createConnection({
+//   host: 'aws.connect.psdb.cloud',
+//   user: '1boi4w6svhu5q675qa4f',
+//   password: 'pscale_pw_jHQ1aKwLo77WlpFabH59IPhDZehLpdRpTQXzZFEOZM',
+//   database: 'aistylistdemo',
+//   ssl: {
+//     rejectUnauthorized: false, // This is set to false for demonstration purposes, but in a production environment, you should use a certificate and set this to true
+//   },
+// });
+
 const connection = mysql.createConnection({
-  connectionString: process.env.DATABASE_URL
+  host: process.env.DATABASE_HOST,
+  user: process.env.DATABASE_USER,
+  password: process.env.DATABASE_PASSWORD,
+  database: process.env.DATABASE_NAME,
+  ssl: {
+    rejectUnauthorized: true, // This is set to false for demonstration purposes, but in a production environment, you should use a certificate and set this to true
+  },
 });
+
+// database: aistylistdemo
+// username: 1boi4w6svhu5q675qa4f
+// host: aws.connect.psdb.cloud
+// password: pscale_pw_jHQ1aKwLo77WlpFabH59IPhDZehLpdRpTQXzZFEOZM
+
+
+
+
 
 connection.connect((err) => {
   if (err) {
