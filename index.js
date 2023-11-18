@@ -100,10 +100,14 @@ app.get('/helloWorld',(req,res) => {
   res.send('Hello World from Udit')
 })
 
+app.get('/cicd',(req,res) => {
+  res.send('CD  working, ROcks!')
+})
+
 
 app.get('/getProductTags', (req, res) => {
   // Query the database
-  connection.query('SELECT * FROM Tags', (error, results, fields) => {
+  connection.query('SELECT tagName FROM Tags', (error, results, fields) => {
     if (error) {
       console.error('Error querying database:', error);
       return res.status(500).json({ error: 'Internal Server Error' });
@@ -113,6 +117,9 @@ app.get('/getProductTags', (req, res) => {
     res.json(results).end();
   });
 });
+
+
+// app.get()
 
 // Get a single item
 // app.get('/:col/:key', async (req, res) => {
