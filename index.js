@@ -26,7 +26,7 @@ const connection = mysql.createConnection({
   password: process.env.DATABASE_PASSWORD,
   database: process.env.DATABASE_NAME,
   ssl: {
-    rejectUnauthorized: true, // This is set to false for demonstration purposes, but in a production environment, you should use a certificate and set this to true
+    rejectUnauthorized: false, // This is set to false for demonstration purposes, but in a production environment, you should use a certificate and set this to true
   },
 });
 
