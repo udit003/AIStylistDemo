@@ -50,51 +50,7 @@ connection.connect((err) => {
 // Create the connection to the database
 
 
-// #############################################################################
-// This configures static hosting for files in /public that have the extensions
-// listed in the array.
-// var options = {
-//   dotfiles: 'ignore',
-//   etag: false,
-//   extensions: ['htm', 'html','css','js','ico','jpg','jpeg','png','svg'],
-//   index: ['index.html'],
-//   maxAge: '1m',
-//   redirect: false
-// }
-// app.use(express.static('public', options))
-// #############################################################################
 
-// Create or Update an item
-// app.post('/:col/:key', async (req, res) => {
-//   console.log(req.body)
-
-//   const col = req.params.col
-//   const key = req.params.key
-//   console.log(`from collection: ${col} delete key: ${key} with params ${JSON.stringify(req.params)}`)
-//   const item = await db.collection(col).set(key, req.body)
-//   console.log(JSON.stringify(item, null, 2))
-//   res.json(item).end()
-// })
-
-// // Delete an item
-// app.delete('/:col/:key', async (req, res) => {
-//   const col = req.params.col
-//   const key = req.params.key
-//   console.log(`from collection: ${col} delete key: ${key} with params ${JSON.stringify(req.params)}`)
-//   const item = await db.collection(col).delete(key)
-//   console.log(JSON.stringify(item, null, 2))
-//   res.json(item).end()
-// })
-
-//return all the tags
-// app.get('/getProductTags', async(req,res) => {
-
-//   const connection = mysql.createConnection(process.env.DATABASE_URL)
-//   const items = await connection.query('select * from Tags')
-//   console.log(JSON.stringify(items,null,2))
-//   res.json(items).end()
-
-// })
 
 app.get('/helloWorld',(req,res) => {
   res.send('Hello World from Udit')
@@ -104,41 +60,179 @@ app.get('/cicd',(req,res) => {
   res.send('CD  working, ROcks!')
 })
 
+//pura memory me hai 
+productTagMap = {}
+productsData = {}
+tagNamesToIdMap = {}
+tagIdToNamesMap = {}
 
-app.get('/getProductTags', (req, res) => {
-  // Query the database
-  connection.query('SELECT tagName FROM Tags', (error, results, fields) => {
+const loadTagMaps = ()=> {
+  connection.query('SELECT tagId,tagName FROM Tags', (error, results, fields) => {
     if (error) {
       console.error('Error querying database:', error);
+    }
+    results.forEach(item => {
+      tagNamesToIdMap[item.tagName] = item.tagId
+      tagIdToNamesMap[item.tagId] = item.tagName
+    })
+  });
+}
+
+// Function to query ProductTags and return a promise
+function queryTagMaps() {
+  return new Promise((resolve, reject) => {
+    connection.query('SELECT tagId,tagName FROM Tags', (error, results, fields) => {
+      if (error) {
+        console.error('Error querying database:', error);
+        reject(error); // Rejects the promise if there's an error
+      } else {
+        resolve(results); // Resolves the promise with the results
+      }
+    });
+  });
+}
+
+// Function to query ProductTags and return a promise
+function queryProductTagMaps() {
+  return new Promise((resolve, reject) => {
+    connection.query('SELECT * from ProductTags',(error,results,fields) => {
+      if (error) {
+        console.error('Error querying database:', error);
+        reject(error); // Rejects the promise if there's an error
+      } else {
+        resolve(results); // Resolves the promise with the results
+      }
+    });
+  });
+}
+
+
+// Function to query ProductTags and return a promise
+function queryProducts() {
+  return new Promise((resolve, reject) => {
+    connection.query('SELECT * FROM Products', (error, results, fields) => {
+      if (error) {
+        console.error('Error querying database:', error);
+        reject(error); // Rejects the promise if there's an error
+      } else {
+        resolve(results); // Resolves the promise with the results
+      }
+    });
+  });
+}
+
+
+
+async function getProductTagData(res){
+  if(Object.keys(tagNamesToIdMap).length == 0){
+    try {
+      const dbTagData = await queryTagMaps();
+      dbTagData.forEach(item => {
+        tagNamesToIdMap[item.tagName] = item.tagId
+        tagIdToNamesMap[item.tagId] = item.tagName
+      });
+    } catch (error) {
       return res.status(500).json({ error: 'Internal Server Error' });
     }
-    console.log(JSON.stringify(results,null,2))
-    // Send the results back as JSON
-    res.json(results).end();
+  }
+  
+  return Object.keys(tagNamesToIdMap)
+}
+
+
+async function populateProductTagMap(res){
+  try {
+    const dbData = await queryProductTagMaps();
+    dbData.forEach(col => {
+      if(!(col.productId in productTagMap) ) {productTagMap[col.productId] = [col.tagId]}
+      else {productTagMap[col.productId].push(col.tagId)}
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+}
+
+
+async function populateProductsData(res){
+
+  try {
+    const dbData = await queryProducts();
+    dbData.forEach(item => {
+      productsData[item.productId] = {'brandProductId':item.brandProductId,'imageUrl':item.imageUrl,'purchaseLink':item.purchaseLink,'productDescription':item.productDescription}
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+}
+
+async function getTopProductMatchesBasedOnTags(inputTagNames,res){
+
+  if(Object.keys(productTagMap).length == 0){
+    await populateProductTagMap(res);
+  }
+
+  if(Object.keys(productsData).length == 0){
+   await populateProductsData(res);
+  }
+
+  await getProductTagData(res)
+
+  console.log(tagNamesToIdMap['Versatile'])
+  console.log(inputTagNames)
+  inputTagIds = inputTagNames.map(item => tagNamesToIdMap[item])
+
+  console.log('inputTagid = '+inputTagIds.join(','))
+  //top 10 products find out karte hai chalo
+  matchCountArr = []
+  for (const key in productTagMap){
+    matchingCount = productTagMap[key].filter(item => inputTagIds.includes(item)).length;
+    matchCountArr.push({productId:key,matchCount:matchingCount})
+  }
+
+  matchCountArr.sort((a,b) => b.matchCount-a.matchCount)
+  
+  console.log(matchCountArr)
+
+  resultArray = []
+  for(let i = 0;i<10;i++){
+    if(matchCountArr[i].matchCount==0)
+    break;
+    curProductId = matchCountArr[i].productId;
+    resultArray.push({productId: curProductId,tags:productTagMap[curProductId].map(tagId => tagIdToNamesMap[tagId]),productDescription:productsData[curProductId].productDescription,imageUrl:productsData[curProductId].imageUrl,purchaseLink:productsData[curProductId].purchaseLink})
+  }
+  
+  return resultArray;
+
+}
+
+app.get('/getProductTags', (req, res) => {
+
+  //if tagNamesToIdMap not loaded, load it. 
+  getProductTagData(res).then((data) => {
+    console.log(data)
+    res.json(data).end();
   });
 });
 
+app.get('/getTopProductMatchesBasedOnTags',(req,res) => {
+  tagString = req.query.tags;
+  var inputTagNames = null;
+  if (tagString) {
+    // Split the values into an array using the comma as a delimiter
+    inputTagNames = tagString.split(',');
 
-// app.get()
-
-// Get a single item
-// app.get('/:col/:key', async (req, res) => {
-//   const col = req.params.col
-//   const key = req.params.key
-//   console.log(`from collection: ${col} get key: ${key} with params ${JSON.stringify(req.params)}`)
-//   const item = await db.collection(col).get(key)
-//   console.log(JSON.stringify(item, null, 2))
-//   res.json(item).end()
-// })
-
-// // Get a full listing
-// app.get('/:col', async (req, res) => {
-//   const col = req.params.col
-//   console.log(`list collection: ${col} with params: ${JSON.stringify(req.params)}`)
-//   const items = await db.collection(col).list()
-//   console.log(JSON.stringify(items, null, 2))
-//   res.json(items).end()
-// })
+    // Now, valuesArray contains the values as an array
+    console.log('Received values:', inputTagNames);
+  }
+  else {
+    return res.send('No values provided in the query parameter.');
+  }
+  console.log(inputTagNames)
+  getTopProductMatchesBasedOnTags(inputTagNames,res).then((result) => {
+    console.log(result)
+    res.json(result).end();
+  })
+})
 
 // Catch all handler for all other request.
 app.use('*', (req, res) => {
@@ -150,3 +244,5 @@ const port = process.env.PORT || 3000
 app.listen(port, () => {
   console.log(`index.js listening on ${port}`)
 })
+
+
